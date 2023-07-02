@@ -4,7 +4,8 @@ import "fmt"
 import "log"
 import "net/rpc"
 import "hash/fnv"
-
+// import "os"
+// import "io/ioutil"
 
 //
 // Map functions return a slice of KeyValue.
@@ -28,37 +29,60 @@ func ihash(key string) int {
 //
 // main/mrworker.go calls this function.
 //
-func Worker(mapf func(string, string) []KeyValue,
-	reducef func(string, []string) string) {
+func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string) string) {
 
 	// Your worker implementation here.
-
-	// uncomment to send the Example RPC to the master.
-	// CallExample()
-
+	fmt.Println("Making Worker------")
+	for{
+		task:=getTask()
+		if task.taskType==MapTask {
+			map_func()
+		}else if task.taskType==ReduceTask{
+			reduce_func()
+		}else{
+			fmt.Println("error")
+		}
+	}
+	
+	
 }
+
+func map_func(){
+	fmt.Println("worker now doing the map function!")
+}
+
+func reduce_func(){
+	fmt.Println("Worker now doing the reduce function!")
+}
+
 
 //
 // example function to show how to make an RPC call to the master.
 //
 // the RPC argument and reply types are defined in rpc.go.
 //
-func CallExample() {
+func getTask() Task{
 
 	// declare an argument structure.
-	args := ExampleArgs{}
+	args := GetArgs{}
 
 	// fill in the argument(s).
-	args.X = 99
+	args.Message = "Ask for a task."
 
 	// declare a reply structure.
-	reply := ExampleReply{}
+	reply := GetReply{}
 
 	// send the RPC request, wait for the reply.
-	call("Master.Example", &args, &reply)
-
-	// reply.Y should be 100.
-	fmt.Printf("reply.Y %v\n", reply.Y)
+	ok:=call("Master.GetTask", &args, &reply)
+	task := reply.The_task
+	if ok{
+		// reply.Y should be 100.
+		fmt.Printf("task Type %v\n, filename %v\n", task.taskType, task.filename)
+	}else{
+		fmt.Printf("reply.Err %v\n", reply.Err)
+	}
+	return task
+	
 }
 
 //
