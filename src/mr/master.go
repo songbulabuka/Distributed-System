@@ -29,9 +29,11 @@ const (
 )
 
 type Task struct{
+	id int
 	filename string
 	taskType TaskType
 	status TaskStatus
+	nReduce int
 }
 
 type Master struct {
@@ -83,7 +85,7 @@ func (m *Master) GetTask(args *GetArgs, reply *GetReply) error{
 	return nil
 }
 
-func (m *Master) Put(args *PutArgs, reply *PutReply) error{
+func (m *Master) PutTask(args *PutArgs, reply *PutReply) error{
 	return nil
 }
 
@@ -129,10 +131,10 @@ func MakeMaster(files []string, nReduce int) *Master {
 	r_tasks:=make([]Task, nReduce)
 
 	for i:= range m_tasks{
-		m_tasks[i] = Task{files[i], MapTask, Ready}
+		m_tasks[i] = Task{i, files[i], MapTask, Ready, nReduce}
 	}
 	for i:= range r_tasks{
-		r_tasks[i] = Task{"", ReduceTask, Ready}
+		r_tasks[i] = Task{i, "", ReduceTask, Ready, nReduce}
 	}
 
 	m.mapTasks=m_tasks
