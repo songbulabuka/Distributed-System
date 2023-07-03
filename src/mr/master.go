@@ -46,17 +46,6 @@ type Master struct {
 }
 
 // // Your code here -- RPC handlers for the worker to call.
-
-// //
-// // an example RPC handler.
-// //
-// // the RPC argument and reply types are defined in rpc.go.
-// //
-// func (m *Master) Example(args *ExampleArgs, reply *ExampleReply) error {
-// 	reply.Y = args.X + 1
-// 	return nil
-// }
-
 func (m *Master) GetTask(args *GetArgs, reply *GetReply) error{
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -86,6 +75,16 @@ func (m *Master) GetTask(args *GetArgs, reply *GetReply) error{
 }
 
 func (m *Master) PutTask(args *PutArgs, reply *PutReply) error{
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if args.Type==MapTask{
+		m.map_num--;
+	}else if args.Type==ReduceTask{
+		m.reduce_num--;
+	}else{
+		fmt.Println("error")
+	}
+	reply.Value = "Copy, Got your message"
 	return nil
 }
 

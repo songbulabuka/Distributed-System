@@ -22,7 +22,7 @@ type GetReply struct{
 
 type PutArgs struct{
 	Message string // "task finished"
-	Type string // task type: map or reduce
+	Type TaskType // task type: map or reduce
 	Filename string // generated new filename: mr-X-Y.json or mr-out-X
 	Err string // if task failed, return "error"
 }

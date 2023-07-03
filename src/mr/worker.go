@@ -6,9 +6,9 @@ import "net/rpc"
 import "hash/fnv"
 import "os"
 import "io/ioutil"
-import "strconv"
 import "encoding/json"
 import "path/filepath"
+import "sort"
 //
 // Map functions return a slice of KeyValue.
 //
@@ -67,26 +67,29 @@ func map_func(task Task, mapf func(string, string) []KeyValue){
 	}
 	file.Close()
 	kva := mapf(filename, string(content)) //[]mr.KeyValue
-	map_writeFile(kva,task.id)
+	map_writeFile(kva,task.id, task.nReduce)
 }
 
-func map_writeFile(kva []mr.KeyValue,taskId int){
+func map_writeFile(kva []KeyValue, taskId int, nReduce int){
+	files:=make([]*os.File, nReduce)
+	encs := make([]*json.Encoder, nReduce)
+	for i:=0;i<nReduce;i++{
+		filename := fmt.Sprintf("%v/mr-%v-%v", RootPath, taskId, i) //RootPath+"/mr-"+strconv.Itoa(task.id)+"-"+strconv.Itoa(x)
+		file,err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			fmt.Println(err)
+		}
+		files = append(files, file)
+		encs = append(encs, json.NewEncoder(file))
+	}
 	for _,kv := range kva {
-		x := ihash(kv.Key) % task.nReduce
-		kv_json, err := json.Marshal(kv)
+		x := ihash(kv.Key) % nReduce
+		err:=encs[x].Encode(&kv)
 		if err != nil {
 			fmt.Println(err)
-		}
-		inter_filename := fmt.Sprintf("%v/mr-%v-%v", RootPath, task.id, x) //RootPath+"/mr-"+strconv.Itoa(task.id)+"-"+strconv.Itoa(x)
-		_,err = os.OpenFile(inter_filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			fmt.Println(err)
-		}
-		err = ioutil.WriteFile(inter_filename, kv_json, 0644)  // append?
-		if err != nil {
-			log.Fatal(err)
 		}
 	}
+
 }
 
 func reduce_func(task Task, reducef func(string, []string) string){
@@ -110,21 +113,28 @@ func reduce_func(task Task, reducef func(string, []string) string){
 			kva[kv.Key] = append(kva[kv.Key], kv.Value)
 		}
 	}
-	reduce_writeFile(kva, task.id)
+	reduce_writeFile(kva, task.id, reducef)
 }
 
-func reduce_writeFile(kva map[string][]string, reduceID int){
-	filePath:=fmt.Sprintf("%v/mr-out-%v", RootPath, "*", task.id)
+func reduce_writeFile(kva map[string][]string, reduceID int, reducef func(string, []string) string){
+	filePath:=fmt.Sprintf("%v/mr-out-%v", RootPath, "*", reduceID)
 	file,err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		fmt.Println(err)
 	}
-	enc := json.NewEncoder(file)
-	for _,kv := range kva {
-		err := enc.Encode(&kv)
-
-
+	// sort the map by key
+	keys := make([]string, 0, len(kva))
+	for k := range kva {
+		keys = append(keys, k)
 	}
+	sort.Strings(keys)
+
+	for _,k:=range keys{
+		output := reducef(k, kva[k])
+		fmt.Fprintf(file, "%v %v\n", k, output)
+	}
+
+	file.Close()
 
 }
 
@@ -145,8 +155,7 @@ func getTask() Task{
 	ok:=call("Master.GetTask", &args, &reply)
 	task := reply.The_task
 	if ok{
-		// reply.Y should be 100.
-		fmt.Printf("task Type %v\n, filename %v\n", task.taskType, task.filename)
+		fmt.Printf("GetTask: task Type %v\n, filename %v\n", task.taskType, task.filename)
 	}else{
 		fmt.Printf("reply.Err %v\n", reply.Err)
 	}
@@ -158,11 +167,18 @@ func putTask(task Task){
 	// declare an argument structure.
 	args := PutArgs{}
 	// fill in the argument(s).
-	args.Message = "Ask for a task."
+	args.Message = "Task Finished"
+	args.Type = task.taskType
+	args.Filename = task.filename
 	// declare a reply structure.
 	reply := PutReply{}
 	// send the RPC request, wait for the reply.
 	ok:=call("Master.PutTask", &args, &reply)
+	if ok{
+		fmt.Printf("Finished task: Task Type %v\n, filename %v\n", task.taskType, task.filename)
+	}else{
+		fmt.Printf("reply.Err %v\n", reply.Err)
+	}
 
 }
 
