@@ -9,6 +9,7 @@ import "io/ioutil"
 import "encoding/json"
 import "path/filepath"
 import "sort"
+import "bufio"
 //
 // Map functions return a slice of KeyValue.
 //
@@ -38,10 +39,10 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 	fmt.Println("Making Worker------")
 	for{
 		task:=getTask()
-		if task.taskType==MapTask {
+		if task.TaskType==MapTask {
 			map_func(task, mapf)
 			putTask(task)
-		}else if task.taskType==ReduceTask{
+		}else if task.TaskType==ReduceTask{
 			reduce_func(task, reducef)
 			putTask(task)
 		}else{
@@ -53,8 +54,8 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 }
 
 func map_func(task Task, mapf func(string, string) []KeyValue){
-	fmt.Println("worker now doing the map function!")
-	filename := RootPath+task.filename
+	fmt.Println("worker now doing the map function!------")
+	filename := RootPath+task.Filename
 	file, err := os.Open(filename)
 	if err != nil {
 		log.Fatalf("cannot open %v", filename)
@@ -67,34 +68,42 @@ func map_func(task Task, mapf func(string, string) []KeyValue){
 	}
 	file.Close()
 	kva := mapf(filename, string(content)) //[]mr.KeyValue
-	map_writeFile(kva,task.id, task.nReduce)
+	map_writeFile(kva, task.Id, task.NReduce)
 }
 
 func map_writeFile(kva []KeyValue, taskId int, nReduce int){
-	files:=make([]*os.File, nReduce)
-	encs := make([]*json.Encoder, nReduce)
+	fmt.Println("  Map_writeFile------")
+	files:=make([]*os.File, 0, nReduce)
+	buffers := make([]*bufio.Writer, 0, nReduce)
+	encs := make([]*json.Encoder, 0, nReduce)
 	for i:=0;i<nReduce;i++{
 		filename := fmt.Sprintf("%v/mr-%v-%v", RootPath, taskId, i) //RootPath+"/mr-"+strconv.Itoa(task.id)+"-"+strconv.Itoa(x)
-		file,err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		//file,err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		file, err := os.Create(filename)
 		if err != nil {
 			fmt.Println(err)
+			fmt.Printf("Cannot create file %v\n", filename)
 		}
+		buf := bufio.NewWriter(file)
+		buffers = append(buffers, buf)
 		files = append(files, file)
 		encs = append(encs, json.NewEncoder(file))
 	}
+	fmt.Println("  Writing to files")
 	for _,kv := range kva {
 		x := ihash(kv.Key) % nReduce
-		err:=encs[x].Encode(&kv)
-		if err != nil {
+		if err := encs[x].Encode(&kv); err != nil {
+			fmt.Printf("Can not encode %v to file\n",&kv)
 			fmt.Println(err)
+			break
 		}
 	}
-
+	fmt.Println("  Map_writeFile Finished------")
 }
 
 func reduce_func(task Task, reducef func(string, []string) string){
-	fmt.Println("Worker now doing the reduce function!")
-	files,err := filepath.Glob(fmt.Sprintf("%v/mr-%v-%v", RootPath, "*", task.id))
+	fmt.Println("Worker now doing the reduce function!------")
+	files,err := filepath.Glob(fmt.Sprintf("%v/mr-%v-%v", RootPath, "*", task.Id))
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -113,11 +122,11 @@ func reduce_func(task Task, reducef func(string, []string) string){
 			kva[kv.Key] = append(kva[kv.Key], kv.Value)
 		}
 	}
-	reduce_writeFile(kva, task.id, reducef)
+	reduce_writeFile(kva, task.Id, reducef)
 }
 
 func reduce_writeFile(kva map[string][]string, reduceID int, reducef func(string, []string) string){
-	filePath:=fmt.Sprintf("%v/mr-out-%v", RootPath, "*", reduceID)
+	filePath:=fmt.Sprintf("%v/mr-out-%v", RootPath, reduceID)
 	file,err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		fmt.Println(err)
@@ -153,29 +162,32 @@ func getTask() Task{
 	reply := GetReply{}
 	// send the RPC request, wait for the reply.
 	ok:=call("Master.GetTask", &args, &reply)
-	task := reply.The_task
 	if ok{
-		fmt.Printf("GetTask: task Type %v\n, filename %v\n", task.taskType, task.filename)
+		task := reply.The_task
+		fmt.Printf("GetTask: task Type %v\n Filename %v\n", task.TaskType, task.Filename)
+		return task
 	}else{
+		var task Task
 		fmt.Printf("reply.Err %v\n", reply.Err)
+		return task
 	}
-	return task
-	
 }
 
 func putTask(task Task){
+	fmt.Println("putTask------")
 	// declare an argument structure.
 	args := PutArgs{}
 	// fill in the argument(s).
 	args.Message = "Task Finished"
-	args.Type = task.taskType
-	args.Filename = task.filename
+	args.Type = task.TaskType
+	args.Filename = task.Filename
 	// declare a reply structure.
 	reply := PutReply{}
 	// send the RPC request, wait for the reply.
+	fmt.Println("  Calling server---")
 	ok:=call("Master.PutTask", &args, &reply)
 	if ok{
-		fmt.Printf("Finished task: Task Type %v\n, filename %v\n", task.taskType, task.filename)
+		fmt.Printf("Finished task: Task Type %v\n, filename %v\n", task.TaskType, task.Filename)
 	}else{
 		fmt.Printf("reply.Err %v\n", reply.Err)
 	}

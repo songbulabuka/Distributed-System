@@ -22,7 +22,7 @@ func main() {
 
 	m := mr.MakeMaster(os.Args[1:], 10)
 	for m.Done() == false {
-		time.Sleep(time.Second*10)
+		time.Sleep(time.Second*15)
 		break
 	}
 

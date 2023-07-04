@@ -29,11 +29,11 @@ const (
 )
 
 type Task struct{
-	id int
-	filename string
-	taskType TaskType
-	status TaskStatus
-	nReduce int
+	Id int
+	Filename string
+	TaskType TaskType
+	Status TaskStatus
+	NReduce int
 }
 
 type Master struct {
@@ -48,43 +48,41 @@ type Master struct {
 // // Your code here -- RPC handlers for the worker to call.
 func (m *Master) GetTask(args *GetArgs, reply *GetReply) error{
 	m.mu.Lock()
-	defer m.mu.Unlock()
-	fmt.Println("Get request from worker: ",args)
+	fmt.Println("Get request from worker: ",args.Message)
 	if m.map_num!=0 {
 		for _,task := range m.mapTasks{
-			if task.status==Ready{
+			if task.Status==Ready{
 				reply.The_task = task
-				reply.Filename = task.filename
-				return nil
+				reply.Filename = task.Filename
 			}
 		}
-	}
-
-	if m.reduce_num!=0{
+	}else if m.reduce_num!=0{
 		for _,task := range m.reduceTasks{
-			if task.filename!="" && task.status==Ready{
+			if task.Filename!="" && task.Status==Ready{
 				reply.The_task = task
-				reply.Filename = task.filename
-				return nil
+				reply.Filename = task.Filename
 			}
 		}
+	}else{
+		reply.Err = Err
 	}
-
-	reply.Err = Err
+	m.mu.Unlock()
 	return nil
 }
 
 func (m *Master) PutTask(args *PutArgs, reply *PutReply) error{
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	fmt.Println("Get response from worker: ",args.Message)
 	if args.Type==MapTask{
 		m.map_num--;
 	}else if args.Type==ReduceTask{
 		m.reduce_num--;
 	}else{
-		fmt.Println("error")
+		reply.Err = "PutTast server error"
+		fmt.Println("PutTast server error")
 	}
 	reply.Value = "Copy, Got your message"
+	m.mu.Unlock()
 	return nil
 }
 
