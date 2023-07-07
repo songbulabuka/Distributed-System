@@ -49,18 +49,19 @@ type Master struct {
 func (m *Master) GetTask(args *GetArgs, reply *GetReply) error{
 	m.mu.Lock()
 	fmt.Println("Get request from worker: ",args.Message)
-	if m.map_num!=0 {
+	if m.map_num>0 {
 		for _,task := range m.mapTasks{
 			if task.Status==Ready{
+				fmt.Printf("Handout task, taskId:%v \n",task.Id)
+				task.Status = Process
 				reply.The_task = task
-				reply.Filename = task.Filename
+				break
 			}
 		}
-	}else if m.reduce_num!=0{
+	}else if m.reduce_num>0{
 		for _,task := range m.reduceTasks{
 			if task.Filename!="" && task.Status==Ready{
 				reply.The_task = task
-				reply.Filename = task.Filename
 			}
 		}
 	}else{
@@ -73,15 +74,19 @@ func (m *Master) GetTask(args *GetArgs, reply *GetReply) error{
 func (m *Master) PutTask(args *PutArgs, reply *PutReply) error{
 	m.mu.Lock()
 	fmt.Println("Get response from worker: ",args.Message)
-	if args.Type==MapTask{
-		m.map_num--;
-	}else if args.Type==ReduceTask{
+	task := args.The_task
+	fmt.Printf("Task: task Type %v, Filename: %v, task ID: %v\n", task.TaskType, task.Filename, task.Id)	
+	if task.TaskType==MapTask{
+		fmt.Println("It is a map task")
+		m.map_num--
+		m.mapTasks[task.Id].Status = Finished
+	}else if task.TaskType==ReduceTask{
 		m.reduce_num--;
 	}else{
 		reply.Err = "PutTast server error"
 		fmt.Println("PutTast server error")
 	}
-	reply.Value = "Copy, Got your message"
+	reply.Message = "Copy, Got your message"
 	m.mu.Unlock()
 	return nil
 }

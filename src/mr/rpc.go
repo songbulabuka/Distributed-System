@@ -15,20 +15,18 @@ type GetArgs struct{
 }
 
 type GetReply struct{
-	The_task Task // task type: map or reduce
-	Filename string //task filename:pg*.txt or mr-X-Y.json
+	The_task Task // task type: map or reduce, taskFilename, taskID
 	Err string // "error"
 }
 
 type PutArgs struct{
 	Message string // "task finished"
-	Type TaskType // task type: map or reduce
-	Filename string // generated new filename: mr-X-Y.json or mr-out-X
+	The_task Task // task type: map or reduce, taskFilename, taskID
 	Err string // if task failed, return "error"
 }
 
 type PutReply struct{
-	Value string
+	Message string
 	Err string
 }
 

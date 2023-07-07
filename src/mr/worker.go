@@ -164,7 +164,7 @@ func getTask() Task{
 	ok:=call("Master.GetTask", &args, &reply)
 	if ok{
 		task := reply.The_task
-		fmt.Printf("GetTask: task Type %v\n Filename %v\n", task.TaskType, task.Filename)
+		fmt.Printf("GetTask: Type %v, File: %v, ID: %v, Status:%v\n", task.TaskType, task.Filename, task.Id, task.Status)
 		return task
 	}else{
 		var task Task
@@ -174,20 +174,19 @@ func getTask() Task{
 }
 
 func putTask(task Task){
-	fmt.Println("putTask------")
+	fmt.Println("PutTask------")
 	// declare an argument structure.
 	args := PutArgs{}
 	// fill in the argument(s).
 	args.Message = "Task Finished"
-	args.Type = task.TaskType
-	args.Filename = task.Filename
+	args.The_task = task
 	// declare a reply structure.
 	reply := PutReply{}
 	// send the RPC request, wait for the reply.
 	fmt.Println("  Calling server---")
 	ok:=call("Master.PutTask", &args, &reply)
 	if ok{
-		fmt.Printf("Finished task: Task Type %v\n, filename %v\n", task.TaskType, task.Filename)
+		fmt.Printf("FinishedTask: task Type %v, Filename: %v, task ID: %v\n", task.TaskType, task.Filename, task.Id)	
 	}else{
 		fmt.Printf("reply.Err %v\n", reply.Err)
 	}
