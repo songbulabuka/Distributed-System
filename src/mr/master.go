@@ -7,9 +7,13 @@ import "os"
 import "net/rpc"
 import "net/http"
 import "sync"
+import "errors"
+import "time"
 
 type TaskType int
 type TaskStatus int
+
+const WaitTime=10
 
 const (
 	OK  = "OK"
@@ -49,23 +53,49 @@ type Master struct {
 func (m *Master) GetTask(args *GetArgs, reply *GetReply) error{
 	m.mu.Lock()
 	fmt.Println("Get request from worker: ",args.Message)
+	var this_task Task
 	if m.map_num>0 {
-		for _,task := range m.mapTasks{
-			if task.Status==Ready{
-				fmt.Printf("Handout task, taskId:%v \n",task.Id)
-				task.Status = Process
-				reply.The_task = task
+		for i := 0; i < len(m.mapTasks); i++{
+			if m.mapTasks[i].Status==Ready{
+				m.mapTasks[i].Status = Process
+				fmt.Printf("Handout map task, taskId:%v \n",i)
+				this_task = m.mapTasks[i]
 				break
 			}
 		}
 	}else if m.reduce_num>0{
-		for _,task := range m.reduceTasks{
-			if task.Filename!="" && task.Status==Ready{
-				reply.The_task = task
+		for i := 0; i < len(m.reduceTasks); i++{
+			if m.reduceTasks[i].Status==Ready{
+				m.reduceTasks[i].Status = Process
+				fmt.Printf("Handout reduce task, taskId:%v \n",i)
+				this_task = m.reduceTasks[i]
+				break
 			}
 		}
 	}else{
 		reply.Err = Err
+	}
+	reply.The_task = this_task
+	go m.waitforTask(this_task.TaskType, this_task.Id)
+
+	m.mu.Unlock()
+	if reply.Err==""{
+		return nil
+	}else{
+		return errors.New("no task remained")
+	}
+}
+
+
+func (m *Master) waitforTask(taskType TaskType, id int) error{
+	time.Sleep(time.Second*WaitTime)
+	m.mu.Lock()
+	if taskType==MapTask {
+		m.mapTasks[id].Status = Ready
+	}else if taskType==ReduceTask{
+		m.reduceTasks[id].Status = Ready
+	}else{
+		return errors.New("error")
 	}
 	m.mu.Unlock()
 	return nil
@@ -77,14 +107,16 @@ func (m *Master) PutTask(args *PutArgs, reply *PutReply) error{
 	task := args.The_task
 	fmt.Printf("Task: task Type %v, Filename: %v, task ID: %v\n", task.TaskType, task.Filename, task.Id)	
 	if task.TaskType==MapTask{
-		fmt.Println("It is a map task")
-		m.map_num--
+		m.map_num--;
 		m.mapTasks[task.Id].Status = Finished
 	}else if task.TaskType==ReduceTask{
 		m.reduce_num--;
+		m.reduceTasks[task.Id].Status = Finished
 	}else{
 		reply.Err = "PutTast server error"
-		fmt.Println("PutTast server error")
+	}
+	if m.map_num==0 && m.reduce_num==0{
+		reply.Finish = true
 	}
 	reply.Message = "Copy, Got your message"
 	m.mu.Unlock()

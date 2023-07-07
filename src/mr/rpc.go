@@ -16,6 +16,7 @@ type GetArgs struct{
 
 type GetReply struct{
 	The_task Task // task type: map or reduce, taskFilename, taskID
+	Map_finished_num int
 	Err string // "error"
 }
 
@@ -27,6 +28,7 @@ type PutArgs struct{
 
 type PutReply struct{
 	Message string
+	Finish bool
 	Err string
 }
 
