@@ -1,6 +1,6 @@
 package mr
 
-import "fmt"
+//import "fmt"
 import "log"
 import "net"
 import "os"
@@ -52,13 +52,13 @@ type Master struct {
 // // Your code here -- RPC handlers for the worker to call.
 func (m *Master) GetTask(args *GetArgs, reply *GetReply) error{
 	m.mu.Lock()
-	fmt.Println("Get request from worker: ",args.Message)
+	//fmt.Println("Get request from worker: ",args.Message)
 	var this_task Task
 	if m.map_num>0 {
 		for i := 0; i < len(m.mapTasks); i++{
 			if m.mapTasks[i].Status==Ready{
 				m.mapTasks[i].Status = Process
-				fmt.Printf("Handout map task, taskId:%v \n",i)
+				//fmt.Printf("Handout map task, taskId:%v \n",i)
 				this_task = m.mapTasks[i]
 				break
 			}
@@ -67,7 +67,7 @@ func (m *Master) GetTask(args *GetArgs, reply *GetReply) error{
 		for i := 0; i < len(m.reduceTasks); i++{
 			if m.reduceTasks[i].Status==Ready{
 				m.reduceTasks[i].Status = Process
-				fmt.Printf("Handout reduce task, taskId:%v \n",i)
+				//fmt.Printf("Handout reduce task, taskId:%v \n",i)
 				this_task = m.reduceTasks[i]
 				break
 			}
@@ -103,9 +103,9 @@ func (m *Master) waitforTask(taskType TaskType, id int) error{
 
 func (m *Master) PutTask(args *PutArgs, reply *PutReply) error{
 	m.mu.Lock()
-	fmt.Println("Get response from worker: ",args.Message)
+	//fmt.Println("Get response from worker: ",args.Message)
 	task := args.The_task
-	fmt.Printf("Task: task Type %v, Filename: %v, task ID: %v\n", task.TaskType, task.Filename, task.Id)	
+	//fmt.Printf("Task: task Type %v, Filename: %v, task ID: %v\n", task.TaskType, task.Filename, task.Id)	
 	if task.TaskType==MapTask{
 		m.map_num--;
 		m.mapTasks[task.Id].Status = Finished
@@ -177,6 +177,6 @@ func MakeMaster(files []string, nReduce int) *Master {
 	m.reduce_num = nReduce
 
 	m.server()
-	fmt.Println("Making server------")
+	//fmt.Println("Making server------")
 	return &m
 }

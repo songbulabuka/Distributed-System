@@ -38,27 +38,24 @@ func ihash(key string) int {
 func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string) string) {
 
 	// Your worker implementation here.
-	fmt.Println("Making Worker------")
+	//fmt.Println("Making Worker------")
 	for{
 		task,ok := getTask()
 		if !ok {
-			fmt.Println("Can not get a task")
+			//log.Fatalf("Can not get a task")
 			return
 		}else if task.TaskType==MapTask {
-			err := map_func(task, mapf)
-			if err!=nil{
-				fmt.Println(err)
-			}
+			map_func(task, mapf)
 			finish := putTask(task)
 			if finish{
-				fmt.Println("No remained task, worker exit")
+				//fmt.Println("No remained task, worker exit")
 				return
 			}
 		}else if task.TaskType==ReduceTask{
 			reduce_func(task, reducef)
 			finish := putTask(task)
 			if finish{
-				fmt.Println("No remained task, worker exit")
+				//fmt.Println("No remained task, worker exit")
 				return
 			}
 		}else{
@@ -71,31 +68,27 @@ func Worker(mapf func(string, string) []KeyValue, reducef func(string, []string)
 }
 
 func map_func(task Task, mapf func(string, string) []KeyValue) error{
-	fmt.Println("worker now doing the map function!------")
 	//filename := RootPath+task.Filename
 	filename := task.Filename
 	file, err := os.Open(filename)
 	if err != nil {
 		log.Fatalf("cannot open %v", filename)
-		return err
 	}
 	content, err := ioutil.ReadAll(file)
 	if err != nil {
 		log.Fatalf("cannot read %v", filename)
-		return err
 	}
 	file.Close()
 	kva := mapf(filename, string(content)) //[]mr.KeyValue
 	err = map_writeFile(kva, task.Id, task.NReduce)
 	if err!=nil{
-		fmt.Println(err)
-		return err
+		log.Fatalf("map write file failed,taskId%v",task.Id)
 	}
 	return nil
 }
 
 func map_writeFile(kva []KeyValue, taskId int, nReduce int) error{
-	fmt.Println("  Map_writeFile------")
+	//fmt.Println("  Map_writeFile------")
 	files:=make([]*os.File, 0, nReduce)
 	buffers := make([]*bufio.Writer, 0, nReduce)
 	encs := make([]*json.Encoder, 0, nReduce)
@@ -111,19 +104,16 @@ func map_writeFile(kva []KeyValue, taskId int, nReduce int) error{
 		files = append(files, file)
 		encs = append(encs, json.NewEncoder(file))
 	}
-	fmt.Println("  Writing to files")
 	for _,kv := range kva {
 		x := ihash(kv.Key) % nReduce
 		if err := encs[x].Encode(&kv); err != nil {
 			return err
 		}
 	}
-	fmt.Println("  Map_writeFile Finished------")
 	return nil
 }
 
 func reduce_func(task Task, reducef func(string, []string) string){
-	fmt.Println("Worker now doing the reduce function!------")
 	files,err := filepath.Glob(fmt.Sprintf("mr-%v-%v", "*", task.Id))
 	if err != nil {
 		fmt.Println(err)
@@ -185,7 +175,7 @@ func getTask() (Task, bool){
 	ok:=call("Master.GetTask", &args, &reply)
 	if ok{
 		task := reply.The_task
-		fmt.Printf("GetTask: Type %v, File: %v, ID: %v, Status:%v\n", task.TaskType, task.Filename, task.Id, task.Status)
+		//fmt.Printf("GetTask: Type %v, File: %v, ID: %v, Status:%v\n", task.TaskType, task.Filename, task.Id, task.Status)
 		return task, ok
 	}else{
 		var task Task
@@ -194,7 +184,6 @@ func getTask() (Task, bool){
 }
 
 func putTask(task Task) bool{
-	fmt.Println("PutTask------")
 	// declare an argument structure.
 	args := PutArgs{}
 	// fill in the argument(s).
@@ -203,10 +192,9 @@ func putTask(task Task) bool{
 	// declare a reply structure.
 	reply := PutReply{}
 	// send the RPC request, wait for the reply.
-	fmt.Println("  Calling server---")
 	ok:=call("Master.PutTask", &args, &reply)
 	if ok{
-		fmt.Printf("FinishedTask: task Type %v, Filename: %v, task ID: %v\n", task.TaskType, task.Filename, task.Id)	
+		//fmt.Printf("FinishedTask: task Type %v, Filename: %v, task ID: %v\n", task.TaskType, task.Filename, task.Id)	
 	}else{
 		fmt.Printf("reply.Err %v\n", reply.Err)
 	}
